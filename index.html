@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SLSC Unofficial Meet Tracker</title>
+
+<!--
+  ============================================================
+  FIREBASE SETUP — do this once, takes ~5 minutes
+  ============================================================
+  1. Go to https://console.firebase.google.com
+  2. Click "Add project", name it "slsc-meet-tracker", click through
+  3. Once created, click the </> (Web) icon to add a web app
+  4. Give it a nickname (e.g. "tracker"), click "Register app"
+  5. You'll see a firebaseConfig block — copy the values into
+     the FIREBASE CONFIG section below (replace the placeholders)
+  6. In the Firebase console left sidebar, click "Build" → "Realtime Database"
+  7. Click "Create database", choose "Start in test mode", click Enable
+  8. That's it! Save this file and deploy to GitHub Pages.
+  ============================================================
+-->
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCNQqFxPUvSK1Gss5mIYKb-BMoleqn0rKI",
+  authDomain:        "slsc-meet-tracker-2026.firebaseapp.com",
+  databaseURL:       "https://slsc-meet-tracker-2026-default-rtdb.firebaseio.com",
+  projectId:         "slsc-meet-tracker-2026",
+  storageBucket:     "slsc-meet-tracker-2026.firebasestorage.app",
+  messagingSenderId: "1091831461868",
+  appId:             "1:1091831461868:web:b17f1b01f33b23694b72c9"
+};
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #ffffff;
+  --bg2:      #f0f7fa;
+  --bg3:      #ddeef5;
+  --text:     #0d2f3f;
+  --text2:    #2e6070;
+  --text3:    #5a8fa0;
+  --border:   rgba(30,100,130,0.15);
+  --border2:  rgba(30,100,130,0.28);
+  --accent:   #1a7a8a;
+  --accent2:  #1596b0;
+  --green-bg:  #d4edda; --green-txt: #1a5c2a;
+  --red-bg:    #fde8e8; --red-txt:   #7a1f1f;
+  --amber-bg:  #fef3d0; --amber-txt: #7a4f00;
+  --blue-bg:   #dbeeff; --blue-txt:  #0a3d6b;
+  --warn-bg:   #fef3d0; --warn-txt:  #7a4f00;
+  --radius:    12px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 16px;
+}
+
+/* Rotating gradient backgrounds for each meet */
+.meet-bg-0 { background: linear-gradient(160deg, #b8e4f0 0%, #7ecfe8 40%, #4ab8d4 100%); }
+.meet-bg-1 { background: linear-gradient(160deg, #a8dde8 0%, #5fc4d8 40%, #2aabb0 100%); }
+.meet-bg-2 { background: linear-gradient(160deg, #9fd8e4 0%, #4dbec8 40%, #1ca0a8 100%); }
+.meet-bg-3 { background: linear-gradient(160deg, #b2e8e0 0%, #6acfc4 40%, #2aafaa 100%); }
+
+.page-header {
+  padding: 1.5rem 1rem 1rem;
+  text-align: center;
+  color: #fff;
+}
+.page-header .subtitle { font-size: 13px; opacity: .85; margin-bottom: 4px; }
+.page-header h1 { font-size: 22px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.page-header .season { font-size: 12px; opacity: .75; margin-top: 3px; }
+
+.content-area {
+  background: var(--bg);
+  border-radius: var(--radius) var(--radius) 0 0;
+  margin-top: .75rem;
+  min-height: calc(100vh - 120px);
+  padding: 1.25rem 1rem 3rem;
+}
+
+.screen { display: none; max-width: 480px; margin: 0 auto; }
+.screen.active { display: block; }
+
+h2 { font-size: 18px; font-weight: 700; margin-bottom: .5rem; }
+h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
+
+.card {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.btn {
+  display: block; width: 100%;
+  padding: 12px 16px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 15px; font-weight: 500;
+  cursor: pointer; margin-bottom: 10px;
+  font-family: inherit; text-align: center;
+  transition: background .15s;
+}
+.btn:active { transform: scale(0.98); }
+.btn:hover { background: var(--bg2); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+.btn-sm { width: auto; display: inline-block; padding: 7px 12px; font-size: 13px; margin-bottom: 0; }
+.btn-back { margin-bottom: 1rem; width: auto; display: inline-block; padding: 7px 12px; font-size: 13px; }
+.btn-ghost { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); color: #fff; }
+.btn-ghost:hover { background: rgba(255,255,255,0.35); }
+
+.meet-card {
+  background: var(--bg);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: .75rem;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.meet-card:hover { background: var(--bg2); }
+.meet-card:active { transform: scale(0.99); }
+.meet-card-left .meet-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; color: var(--text); }
+.meet-card-left .meet-sub { font-size: 13px; color: var(--text2); }
+.meet-card-arrow { color: var(--text3); font-size: 18px; }
+
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+.metric {
+  background: var(--bg2);
+  border-radius: var(--radius-sm);
+  padding: 1rem; text-align: center;
+  border: 0.5px solid var(--border);
+}
+.metric-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.metric-value { font-size: 32px; font-weight: 800; color: var(--text); }
+
+.status-banner {
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.status-text { font-size: 18px; font-weight: 700; }
+.status-sub { font-size: 13px; margin-top: 4px; opacity: .85; }
+
+.section-label {
+  font-size: 11px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 6px; margin-top: 1rem; font-weight: 600;
+}
+
+.place-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+.place-btn {
+  padding: 14px 8px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--text);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; text-align: center;
+  font-family: inherit; transition: background .1s;
+}
+.place-btn:active { transform: scale(0.97); }
+.place-btn.sel-slsc { background: var(--green-bg); border-color: var(--green-txt); color: var(--green-txt); }
+.place-btn.sel-opp  { background: var(--red-bg);   border-color: var(--red-txt);   color: var(--red-txt); }
+
+.sweep-note {
+  display: none; font-size: 13px;
+  color: var(--warn-txt); background: var(--warn-bg);
+  padding: 8px 12px; border-radius: var(--radius-sm); margin: 10px 0 4px;
+}
+.relay-note {
+  font-size: 12px; color: var(--text2); background: var(--bg3);
+  padding: 6px 10px; border-radius: var(--radius-sm); margin-bottom: 8px;
+}
+
+.tab-bar { display: flex; gap: 8px; margin-bottom: 1rem; }
+.tab {
+  flex: 1; padding: 8px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent; color: var(--text2);
+  font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500;
+}
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.event-row {
+  display: flex; align-items: center;
+  padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 14px;
+}
+.event-row:last-child { border-bottom: none; }
+.ev-num { color: var(--text3); font-size: 12px; min-width: 32px; font-weight: 600; }
+
+.badge { padding: 3px 8px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 700; }
+.badge-s { background: var(--green-bg); color: var(--green-txt); }
+.badge-a { background: var(--red-bg); color: var(--red-txt); }
+
+.input-field {
+  width: 100%; padding: 10px 12px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius-sm);
+  font-size: 15px; background: var(--bg); color: var(--text);
+  font-family: inherit; margin-bottom: 8px;
+}
+
+.error-msg { color: var(--red-txt); font-size: 13px; margin-top: 4px; display: none; }
+
+.sync-bar {
+  font-size: 12px; color: var(--text3);
+  text-align: center; padding: 4px 0; margin-bottom: 8px; min-height: 22px;
+}
+
+.progress-bar-wrap { background: var(--bg3); border-radius: 99px; height: 5px; margin: 8px 0; }
+.progress-bar-fill { background: var(--accent); border-radius: 99px; height: 5px; transition: width .4s; }
+
+.spinner {
+  display: inline-block; width: 13px; height: 13px;
+  border: 2px solid var(--border); border-top-color: var(--text3);
+  border-radius: 50%; animation: spin .6s linear infinite;
+  vertical-align: middle; margin-right: 5px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.top-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.firebase-warning {
+  background: var(--amber-bg); color: var(--amber-txt);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  font-size: 13px; margin-bottom: 1rem; display: none;
+}
+
+/* Swimmer display cards */
+.event-display-card {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: .75rem;
+  overflow: hidden;
+}
+.event-display-header {
+  display: flex; align-items: center;
+  padding: .6rem 1rem;
+  background: var(--accent);
+  color: #fff;
+}
+.event-display-header .ev-tag {
+  font-size: 11px; font-weight: 700; opacity: .8; margin-right: 8px; white-space: nowrap;
+}
+.event-display-header .ev-name { font-size: 14px; font-weight: 700; }
+.event-display-header.ondeck { background: var(--accent2); opacity: .85; }
+.event-display-header.ondeck2 { background: var(--text3); opacity: .8; }
+
+.heat-block { padding: .5rem 1rem; border-bottom: 0.5px solid var(--border); }
+.heat-block:last-child { border-bottom: none; }
+.heat-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.swimmer-list { font-size: 13px; color: var(--text); line-height: 1.8; }
+.swimmer-chip {
+  display: inline-block;
+  background: var(--bg);
+  border: 0.5px solid var(--border);
+  border-radius: 99px;
+  padding: 2px 10px;
+  margin: 2px 3px 2px 0;
+  font-size: 12px;
+  color: var(--text2);
+}
+</style>
+</head>
+<body>
+
+<div id="page-header" class="page-header meet-bg-0">
+  <div class="subtitle">Stony Lane Swim Club</div>
+  <h1 id="header-title">Unofficial Meet Tracker</h1>
+  <div class="season" id="header-sub">2026 Season</div>
+</div>
+
+<div class="content-area">
+
+<!-- ── HOME ── -->
+<div id="screen-home" class="screen active">
+  <div id="firebase-warning" class="firebase-warning"></div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Select a meet</div>
+  <div id="meet-list"></div>
+</div>
+
+<!-- ── HUB ── -->
+<div id="screen-hub" class="screen">
+  <div class="top-bar">
+    <button class="btn btn-sm" onclick="leaveHub()">← Meets</button>
+    <button class="btn btn-sm" onclick="goAdmin()">Scorer →</button>
+  </div>
+  <div id="firebase-warning-hub" class="firebase-warning"></div>
+  <div id="hub-status-banner" class="status-banner"></div>
+  <div class="metric-grid">
+    <div class="metric"><div class="metric-label">SLSC</div><div class="metric-value" id="hub-slsc">—</div></div>
+    <div class="metric"><div class="metric-label" id="hub-opp-label">OPP</div><div class="metric-value" id="hub-opp">—</div></div>
+  </div>
+
+  <!-- Current + on deck swimmer display -->
+  <div id="swimmer-display"></div>
+
+  <div class="tab-bar" style="margin-top:.5rem">
+    <button class="tab active" onclick="switchTab('results')" id="tab-results">Results</button>
+    <button class="tab" onclick="switchTab('upcoming')" id="tab-upcoming">Upcoming</button>
+  </div>
+  <div id="panel-results"></div>
+  <div id="panel-upcoming" style="display:none"></div>
+  <div id="viewer-sync" class="sync-bar" style="margin-top:.5rem"></div>
+</div>
+
+<!-- ── LOGIN ── -->
+<div id="screen-login" class="screen">
+  <button class="btn btn-back" onclick="show('screen-hub')">← Back</button>
+  <div class="card">
+    <h3>Scorer login</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Enter the scorer password to input results.</p>
+    <input class="input-field" type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()">
+    <div id="pw-error" class="error-msg">Incorrect password</div>
+    <button class="btn btn-primary" onclick="checkPw()" style="margin-top:10px">Sign in</button>
+  </div>
+</div>
+
+<!-- ── ADMIN ── -->
+<div id="screen-admin" class="screen">
+  <div class="top-bar">
+    <button class="btn btn-sm" onclick="show('screen-hub')">← Scoreboard</button>
+    <div id="admin-meet-name" style="font-size:13px;color:var(--text2)"></div>
+  </div>
+  <div id="sync-status" class="sync-bar"></div>
+  <div class="card" style="background:var(--bg)">
+    <div id="admin-event-label" style="font-size:12px;color:var(--text3);margin-bottom:2px;font-weight:600"></div>
+    <div id="admin-event-name" style="font-size:17px;font-weight:700;margin-bottom:6px"></div>
+    <div id="admin-relay-note" class="relay-note" style="display:none"></div>
+    <div id="place-sections"></div>
+    <div id="sweep-note" class="sweep-note"></div>
+    <button class="btn btn-primary" onclick="submitResult()" style="margin-top:14px">Save &amp; next →</button>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn" onclick="prevEvent()" style="flex:1;font-size:13px">← Previous</button>
+    <button class="btn" onclick="skipEvent()" style="flex:1;font-size:13px">Skip →</button>
+  </div>
+  <div id="admin-progress" style="font-size:12px;color:var(--text3);text-align:center;margin-top:8px"></div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="admin-progress-fill" style="width:0%"></div></div>
+</div>
+
+</div><!-- end content-area -->
+
+<script>
+// ── MEETS ─────────────────────────────────────────────────────────────────────
+const MEETS = [
+  { id:"asc-jun18",  label:"SLSC @ ASC",        date:"June 18, 2026",  opp:"ASC",        bgClass:"meet-bg-0" },
+  { id:"acac-jul01", label:"SLSC @ ACAC",        date:"July 1, 2026",   opp:"ACAC",       bgClass:"meet-bg-1" },
+  { id:"rtw-jul08",  label:"SLSC @ RTW",         date:"July 8, 2026",   opp:"RTW",        bgClass:"meet-bg-2" },
+  { id:"wall-jul15", label:"SLSC vs Wallingford", date:"July 15, 2026",  opp:"Wallingford",bgClass:"meet-bg-3" },
+];
+
+// ── EVENT DEFINITIONS (names/numbers/relay flag — same for all meets) ─────────
+const EVENT_DEFS = [
+  {n:1,  name:"Girls 8U 100 Medley Relay",    relay:true},
+  {n:2,  name:"Boys 8U 100 Medley Relay",     relay:true},
+  {n:3,  name:"Girls 9-10 100 Medley Relay",  relay:true},
+  {n:4,  name:"Boys 9-10 100 Medley Relay",   relay:true},
+  {n:5,  name:"Girls 11-12 200 Medley Relay", relay:true},
+  {n:6,  name:"Boys 11-12 200 Medley Relay",  relay:true},
+  {n:7,  name:"Girls 13-14 200 Medley Relay", relay:true},
+  {n:8,  name:"Boys 13-14 200 Medley Relay",  relay:true},
+  {n:9,  name:"Girls 15-18 200 Medley Relay", relay:true},
+  {n:10, name:"Boys 15-18 200 Medley Relay",  relay:true},
+  {n:11, name:"Girls 8U 25 Back",             relay:false},
+  {n:12, name:"Boys 8U 25 Back",              relay:false},
+  {n:13, name:"Girls 9-10 50 Back",           relay:false},
+  {n:14, name:"Boys 9-10 50 Back",            relay:false},
+  {n:15, name:"Girls 11-12 50 Back",          relay:false},
+  {n:16, name:"Boys 11-12 50 Back",           relay:false},
+  {n:17, name:"Girls 13-14 50 Back",          relay:false},
+  {n:18, name:"Boys 13-14 50 Back",           relay:false},
+  {n:19, name:"Girls 15-18 50 Back",          relay:false},
+  {n:20, name:"Boys 15-18 50 Back",           relay:false},
+  {n:21, name:"Girls 8U 25 Breast",           relay:false},
+  {n:22, name:"Boys 8U 25 Breast",            relay:false},
+  {n:23, name:"Girls 9-10 50 Breast",         relay:false},
+  {n:24, name:"Boys 9-10 50 Breast",          relay:false},
+  {n:25, name:"Girls 11-12 50 Breast",        relay:false},
+  {n:26, name:"Boys 11-12 50 Breast",         relay:false},
+  {n:27, name:"Girls 13-14 50 Breast",        relay:false},
+  {n:28, name:"Boys 13-14 50 Breast",         relay:false},
+  {n:29, name:"Girls 15-18 50 Breast",        relay:false},
+  {n:30, name:"Boys 15-18 50 Breast",         relay:false},
+  {n:31, name:"Girls 8U 25 Free",             relay:false},
+  {n:32, name:"Boys 8U 25 Free",              relay:false},
+  {n:33, name:"Girls 9-10 50 Free",           relay:false},
+  {n:34, name:"Boys 9-10 50 Free",            relay:false},
+  {n:35, name:"Girls 11-12 50 Free",          relay:false},
+  {n:36, name:"Boys 11-12 50 Free",           relay:false},
+  {n:37, name:"Girls 13-14 50 Free",          relay:false},
+  {n:38, name:"Boys 13-14 50 Free",           relay:false},
+  {n:39, name:"Girls 15-18 100 Free",         relay:false},
+  {n:40, name:"Boys 15-18 100 Free",          relay:false},
+  {n:41, name:"Girls 8U 25 Fly",              relay:false},
+  {n:42, name:"Boys 8U 25 Fly",               relay:false},
+  {n:43, name:"Girls 9-10 50 Fly",            relay:false},
+  {n:44, name:"Boys 9-10 50 Fly",             relay:false},
+  {n:45, name:"Girls 11-12 50 Fly",           relay:false},
+  {n:46, name:"Boys 11-12 50 Fly",            relay:false},
+  {n:47, name:"Girls 13-14 50 Fly",           relay:false},
+  {n:48, name:"Boys 13-14 50 Fly",            relay:false},
+  {n:49, name:"Girls 15-18 50 Fly",           relay:false},
+  {n:50, name:"Boys 15-18 50 Fly",            relay:false},
+  {n:51, name:"Girls 8U 100 Free Relay",      relay:true},
+  {n:52, name:"Boys 8U 100 Free Relay",       relay:true},
+  {n:53, name:"Girls 9-10 100 Free Relay",    relay:true},
+  {n:54, name:"Boys 9-10 100 Free Relay",     relay:true},
+  {n:55, name:"Girls 11-12 200 Free Relay",   relay:true},
+  {n:56, name:"Boys 11-12 200 Free Relay",    relay:true},
+  {n:57, name:"Girls 13-14 200 Free Relay",   relay:true},
+  {n:58, name:"Boys 13-14 200 Free Relay",    relay:true},
+  {n:59, name:"Girls 15-18 200 Free Relay",   relay:true},
+  {n:60, name:"Boys 15-18 200 Free Relay",    relay:true},
+];
+
+// ── SWIMMERS PER MEET ─────────────────────────────────────────────────────────
+// Each key is a meet id. Value is an array of heats per event index (0-based).
+// null means lineup not yet available — shows "Lineup TBD" in the display.
+// When a new PDF arrives, only the relevant meet's entry below needs updating.
+const MEET_SWIMMERS = {
+  "asc-jun18": [
+    [{label:"Heat A",swimmers:["Lottie Bowman","Lillian Keshet","Sloane Mills","Aubrey DiZio"]},{label:"Heat B",swimmers:["Eleanor Anthony","Weezie Hartman","Adelina Johnson","Maya Prudente"]}],
+    [{label:"Heat A",swimmers:["Duncan Bowman","Kit Strode","Alex Chong","Owen Gilbode"]},{label:"Heat B",swimmers:["Elijah Keshet","Jack Krotick","David McDonnell","Elliott Winton"]}],
+    [{label:"Heat A",swimmers:["Eden Tarity","Ella Gilbode","Sophia Mayberry","Cecilia Johnson"]},{label:"Heat B",swimmers:["Nora Hein","Kiera McLaughlin","Emma Munden Clark","Maya Alexander"]},{label:"Heat C",swimmers:["Alyssa Hurd","Lily Morrison","Lexi Winton","Ellie McDonnell"]}],
+    [{label:"Heat A",swimmers:["Axel Bowman","Graham Griffin","Griffin Katzenbach","Bennett Davis"]}],
+    [{label:"Heat A",swimmers:["Billie Oliver","Riley Culbertson","Maren Tarity","Leila Prudente"]},{label:"Heat B",swimmers:["Sydney Alexander","Alana Reliford","Perri Anthony","Sarah Krotick"]}],
+    [{label:"Heat A",swimmers:["Francesco Fanelli Rafferty","Archie Strode","Jack Nazarian","Sy Katzenbach"]}],
+    [{label:"Heat A",swimmers:["Reese Ward","Cora Chong","Evelyn Hein","Ella Scott"]}],
+    [{label:"Heat A",swimmers:["Angelo Fanelli Rafferty","Declan Tarity","Ari Davidow","Benjamin Meltzer"]}],
+    [{label:"Heat A",swimmers:["Alexia Dragut","Stella Strode","Marin Katzenbach","Teresina Fanelli Rafferty"]}],
+    [{label:"Heat A",swimmers:["Conner Chou","Jack Harker","Charlie Klein","Nicholas Clegg"]},{label:"Heat B",swimmers:["Benjamin Brasfield","Conor Scott","Owen Davis","Nathan Cicalese"]}],
+    [{label:"Swimmers",swimmers:["Eleanor Anthony","Weezie Hartman","Sloane Mills"]}],
+    [{label:"Swimmers",swimmers:["Alex Chong","Owen Gilbode","David McDonnell"]}],
+    [{label:"Swimmers",swimmers:["Emma Munden Clark","Maya Alexander","Cecilia Johnson"]}],
+    [{label:"Swimmers",swimmers:["Axel Bowman","Graham Griffin","Ethan Smale"]}],
+    [{label:"Swimmers",swimmers:["Sydney Alexander","Riley Culbertson","Leila Prudente"]}],
+    [{label:"Swimmers",swimmers:["Hank Johnson","Sy Katzenbach","Archie Strode"]}],
+    [{label:"Swimmers",swimmers:["Caroline Clegg","Cora Chong","Ella Scott"]}],
+    [{label:"Swimmers",swimmers:["Angelo Fanelli Rafferty","Benjamin Meltzer"]}],
+    [{label:"Swimmers",swimmers:["Teresina Fanelli Rafferty","Alexia Dragut"]}],
+    [{label:"Swimmers",swimmers:["David O'Connor","Benjamin Brasfield","Jack Harker"]}],
+    [{label:"Swimmers",swimmers:["Aubrey DiZio","Lottie Bowman","Adelina Johnson"]}],
+    [{label:"Swimmers",swimmers:["Jack Krotick","Duncan Bowman","Elliott Winton"]}],
+    [{label:"Swimmers",swimmers:["Maya Alexander","Ella Gilbode","Alyssa Hurd","Cecilia Johnson","Ellie McDonnell","Lily Morrison"]}],
+    [{label:"Swimmers",swimmers:["Bennett Davis","Ethan Smale"]}],
+    [{label:"Swimmers",swimmers:["Billie Oliver","Alana Reliford","Maren Tarity"]}],
+    [{label:"Swimmers",swimmers:["Archie Strode","Clark Griffin","Eli Dierks"]}],
+    [{label:"Swimmers",swimmers:["Caroline Clegg","Evelyn Hein","Reese Ward"]}],
+    [{label:"Swimmers",swimmers:["Ari Davidow","Declan Tarity"]}],
+    [{label:"Swimmers",swimmers:["Marin Katzenbach","Stella Strode"]}],
+    [{label:"Swimmers",swimmers:["Conor Scott","Nathan Cicalese","Owen Davis"]}],
+    [{label:"Swimmers",swimmers:["Adelina Johnson","Lillian Keshet","Maya Prudente"]}],
+    [{label:"Swimmers",swimmers:["Jack Mayberry","Alex Chong","Elijah Keshet"]}],
+    [{label:"Swimmers",swimmers:["Ella Gilbode","Nora Hein","Alyssa Hurd","Emma Munden Clark","Eden Tarity","Lexi Winton"]}],
+    [{label:"Swimmers",swimmers:["Axel Bowman","Graham Griffin","Griffin Katzenbach"]}],
+    [{label:"Swimmers",swimmers:["Sarah Krotick","Perri Anthony","Leila Prudente"]}],
+    [{label:"Swimmers",swimmers:["Eli Dierks","Sy Katzenbach","Jack Nazarian"]}],
+    [{label:"Swimmers",swimmers:["Evelyn Hein","Ella Scott","Reese Ward"]}],
+    [{label:"Swimmers",swimmers:["Angelo Fanelli Rafferty","Benjamin Meltzer"]}],
+    [{label:"Swimmers",swimmers:["Stella Strode","Teresina Fanelli Rafferty"]}],
+    [{label:"Swimmers",swimmers:["Benjamin Brasfield","Conner Chou","Nathan Cicalese","Christian Gagliardi","Conor Scott","Ryan Tobin-Schneider"]}],
+    [{label:"Swimmers",swimmers:["Eleanor Anthony","Weezie Hartman","Lillian Keshet"]}],
+    [{label:"Swimmers",swimmers:["Owen Gilbode","David McDonnell","Kit Strode"]}],
+    [{label:"Swimmers",swimmers:["Sophia Mayberry","Kiera McLaughlin","Eden Tarity"]}],
+    [{label:"Swimmers",swimmers:["Griffin Katzenbach","Bennett Davis","Ethan Smale"]}],
+    [{label:"Swimmers",swimmers:["Maren Tarity","Sydney Alexander","Riley Culbertson"]}],
+    [{label:"Swimmers",swimmers:["Jack Nazarian","Francesco Fanelli Rafferty","Hank Johnson"]}],
+    [{label:"Swimmers",swimmers:["Caroline Clegg","Ella Scott","Cora Chong"]}],
+    [{label:"Swimmers",swimmers:["Ari Davidow","Declan Tarity"]}],
+    [{label:"Swimmers",swimmers:["Alexia Dragut","Marin Katzenbach"]}],
+    [{label:"Swimmers",swimmers:["Charlie Klein","Ryan Tobin-Schneider","Conner Chou","Nicholas Clegg","Owen Davis","Christian Gagliardi"]}],
+    [{label:"Heat A",swimmers:["Lottie Bowman","Sloane Mills","Lillian Keshet","Weezie Hartman"]},{label:"Heat B",swimmers:["Aubrey DiZio","Eleanor Anthony","Maya Prudente","Adelina Johnson"]}],
+    [{label:"Heat A",swimmers:["Duncan Bowman","Owen Gilbode","Kit Strode","Alex Chong"]},{label:"Heat B",swimmers:["Jack Krotick","Jack Mayberry","David McDonnell","Elliott Winton"]}],
+    [{label:"Heat A",swimmers:["Cecilia Johnson","Emma Munden Clark","Sophia Mayberry","Ella Gilbode"]},{label:"Heat B",swimmers:["Nora Hein","Maya Alexander","Kiera McLaughlin","Eden Tarity"]},{label:"Heat C",swimmers:["Lexi Winton","Lily Morrison","Alyssa Hurd","Ellie McDonnell"]}],
+    [{label:"Heat A",swimmers:["Axel Bowman","Graham Griffin","Bennett Davis","Griffin Katzenbach"]}],
+    [{label:"Heat A",swimmers:["Billie Oliver","Sydney Alexander","Riley Culbertson","Maren Tarity"]},{label:"Heat B",swimmers:["Alana Reliford","Sarah Krotick","Perri Anthony","Leila Prudente"]}],
+    [{label:"Heat A",swimmers:["Hank Johnson","Clark Griffin","Eli Dierks","Francesco Fanelli Rafferty"]}],
+    [{label:"Heat A",swimmers:["Cora Chong","Reese Ward","Evelyn Hein","Caroline Clegg"]}],
+    [{label:"Heat A",swimmers:["Ari Davidow","Angelo Fanelli Rafferty","Benjamin Meltzer","Declan Tarity"]}],
+    [{label:"Heat A",swimmers:["Stella Strode","Alexia Dragut","Marin Katzenbach","Teresina Fanelli Rafferty"]}],
+    [{label:"Heat A",swimmers:["Conor Scott","Nicholas Clegg","Owen Davis","Charlie Klein"]},{label:"Heat B",swimmers:["David O'Connor","Jack Harker","Conner Chou","Benjamin Brasfield"]}],
+  ],
+  // ── PASTE UPDATED SWIMMER DATA HERE WHEN PDF ARRIVES ──
+  "acac-jul01": null,   // lineup TBD — update the day before July 1
+  "rtw-jul08":  null,   // lineup TBD — update the day before July 8
+  "wall-jul15": null,   // lineup TBD — update the day before July 15
+};
+
+// Helper: get EVENTS array for the current meet (merges defs + swimmers)
+function getEvents() {
+  const swimmers = currentMeet ? MEET_SWIMMERS[currentMeet.id] : null;
+  return EVENT_DEFS.map((def, i) => ({
+    ...def,
+    heats: swimmers && swimmers[i] ? swimmers[i] : null
+  }));
+}
+
+const SCORER_PW = "slsc2026";
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let db = null, currentMeet = null, results = {}, adminEventIdx = 0;
+let selections = {1:null,2:null,3:null};
+
+// ── FIREBASE ──────────────────────────────────────────────────────────────────
+function initFirebase() {
+  if (FIREBASE_CONFIG.apiKey.startsWith("PASTE_")) {
+    showWarning("firebase-warning", "⚠️ Firebase not configured — results won't sync. See setup instructions in the HTML.");
+    showWarning("firebase-warning-hub", "⚠️ Firebase not configured — live sync disabled.");
+    return;
+  }
+  try { firebase.initializeApp(FIREBASE_CONFIG); db = firebase.database(); }
+  catch(e) { showWarning("firebase-warning", "⚠️ Firebase error: " + e.message); }
+}
+function showWarning(id, msg) { const el=document.getElementById(id); if(el){el.style.display='block';el.textContent=msg;} }
+function dbRef() { return db && currentMeet ? db.ref('meets/'+currentMeet.id+'/results') : null; }
+
+async function saveResults() {
+  setSyncStatus('saving');
+  const ref = dbRef();
+  if (!ref) { setSyncStatus('no-db'); return; }
+  try { await ref.set(results); setSyncStatus('saved'); }
+  catch(e) { setSyncStatus('error'); }
+}
+
+async function loadResults() {
+  const ref = dbRef(); if (!ref) return;
+  try {
+    const snap = await ref.get();
+    const raw = snap.exists() ? snap.val() : {};
+    const norm = {}; Object.keys(raw).forEach(k => norm[parseInt(k)] = raw[k]);
+    results = norm;
+  } catch(e) { results = {}; }
+}
+
+function subscribeResults(cb) {
+  const ref = dbRef(); if (!ref) return;
+  ref.on('value', snap => {
+    const raw = snap.exists() ? snap.val() : {};
+    const norm = {}; Object.keys(raw).forEach(k => norm[parseInt(k)] = raw[k]);
+    results = norm; cb();
+  });
+}
+function unsubscribeResults() { const ref=dbRef(); if(ref) ref.off(); }
+
+function setSyncStatus(s) {
+  const el = document.getElementById('sync-status'); if(!el) return;
+  if(s==='saving') el.innerHTML='<span class="spinner"></span>Saving...';
+  else if(s==='saved'){el.textContent='Saved ✓'; setTimeout(()=>el.textContent='',2000);}
+  else if(s==='error') el.textContent='Save failed — check connection';
+  else if(s==='no-db') el.textContent='Firebase not configured';
+}
+
+// ── SCORING ───────────────────────────────────────────────────────────────────
+function oppName() { return currentMeet ? currentMeet.opp : 'OPP'; }
+
+function calcIndPoints(r) {
+  const [s1,s2,s3]=[r[1],r[2],r[3]], op=oppName();
+  if(s1==='SLSC'&&s2==='SLSC'&&s3==='SLSC') return{slsc:8,opp:1};
+  if(s1===op&&s2===op&&s3===op) return{slsc:1,opp:8};
+  let slsc=0,opp=0;
+  if(s1==='SLSC')slsc+=5; else if(s1===op)opp+=5;
+  if(s2==='SLSC')slsc+=3; else if(s2===op)opp+=3;
+  if(s3==='SLSC')slsc+=1; else if(s3===op)opp+=1;
+  return{slsc,opp};
+}
+
+function isSweep(r) {
+  if(!r||!r[1]||!r[2]||!r[3]) return null;
+  const op=oppName();
+  if(r[1]==='SLSC'&&r[2]==='SLSC'&&r[3]==='SLSC') return 'SLSC';
+  if(r[1]===op&&r[2]===op&&r[3]===op) return op;
+  return null;
+}
+
+function calcScores() {
+  const EVENTS=getEvents();
+  let slsc=0,opp=0,lastDone=-1;
+  EVENTS.forEach((ev,i)=>{
+    const r=results[i]; if(!r) return;
+    lastDone=i;
+    if(ev.relay){ if(r[1]==='SLSC')slsc+=7; else if(r[1]===oppName())opp+=7; }
+    else{ const p=calcIndPoints(r); slsc+=p.slsc; opp+=p.opp; }
+  });
+  return{slsc,opp,lastDone};
+}
+
+function calcMaxRemaining() {
+  const EVENTS=getEvents();
+  let max=0; EVENTS.forEach((ev,i)=>{ if(!results[i]) max+=ev.relay?7:9; }); return max;
+}
+
+function getStatus(slsc,opp,maxRemaining) {
+  const diff=slsc-opp, evsDone=Object.keys(results).length, on=oppName();
+  if(evsDone===0) return{text:'Meet not started',sub:'No events recorded yet',bg:'var(--bg2)',tc:'var(--text)'};
+  if(maxRemaining===0){
+    if(diff>0) return{text:'Stony Lane wins! 🏆',sub:`Final: SLSC ${slsc} – ${on} ${opp}`,bg:'#c0dd97',tc:'#1a5c2a'};
+    if(diff<0) return{text:'Winning hearts and minds',sub:`Final: SLSC ${slsc} – ${on} ${opp}`,bg:'#fde8e8',tc:'#7a1f1f'};
+    return{text:"It's a tie!",sub:`Final: SLSC ${slsc} – ${on} ${opp}`,bg:'#fef3d0',tc:'#7a4f00'};
+  }
+  if(diff>0){
+    if(diff>maxRemaining) return{text:'Definitely winning 🏊',sub:`Up by ${diff} pts — can't be caught`,bg:'#c0dd97',tc:'#1a5c2a'};
+    if(diff>maxRemaining*0.4) return{text:'Probably winning 💪',sub:`Up by ${diff} pts, ${maxRemaining} pts remain`,bg:'#d4edda',tc:'#1a5c2a'};
+    return{text:'Unclear who is winning',sub:`Up by ${diff} pts — anyone's meet`,bg:'#fef3d0',tc:'#7a4f00'};
+  }
+  const behind=Math.abs(diff);
+  if(behind>maxRemaining) return{text:'Winning hearts and minds 💙',sub:`Down by ${behind} pts — can't catch up`,bg:'#fde8e8',tc:'#7a1f1f'};
+  return{text:'Unclear who is winning',sub:`Down by ${behind} pts — still anyone's meet`,bg:'#fef3d0',tc:'#7a4f00'};
+}
+
+// ── SWIMMER DISPLAY ───────────────────────────────────────────────────────────
+function renderSwimmerDisplay(lastDone) {
+  const EVENTS = getEvents();
+  const container = document.getElementById('swimmer-display');
+  const evsDone = Object.keys(results).length;
+  const nextIdx = lastDone + 1;
+
+  const slots = [];
+  if (evsDone === 0) {
+    for(let i=0;i<Math.min(3,EVENTS.length);i++) slots.push({ev:EVENTS[i], role: i===0?'current':'ondeck'+(i)});
+  } else {
+    slots.push({ev: EVENTS[lastDone], role:'current'});
+    if(nextIdx < EVENTS.length) slots.push({ev: EVENTS[nextIdx], role:'ondeck1'});
+    if(nextIdx+1 < EVENTS.length) slots.push({ev: EVENTS[nextIdx+1], role:'ondeck2'});
+  }
+
+  let html = '';
+  slots.forEach(slot => {
+    const ev = slot.ev;
+    const isCurrent = slot.role === 'current';
+    const isOndeck1 = slot.role === 'ondeck1';
+    let headerClass = 'event-display-header';
+    if(isOndeck1) headerClass += ' ondeck';
+    else if(slot.role==='ondeck2') headerClass += ' ondeck2';
+
+    let tag = '';
+    if(evsDone===0 && slot.role==='current') tag = 'Up first';
+    else if(isCurrent) tag = 'In the water';
+    else if(isOndeck1) tag = 'On deck';
+    else tag = 'On deck 2';
+
+    html += `<div class="event-display-card">
+      <div class="${headerClass}">
+        <span class="ev-tag">${tag} · #${ev.n}</span>
+        <span class="ev-name">${ev.name}</span>
+      </div>`;
+
+    if (ev.heats) {
+      ev.heats.forEach(heat => {
+        html += `<div class="heat-block">
+          <div class="heat-label">${heat.label}</div>
+          <div class="swimmer-list">`;
+        heat.swimmers.forEach(s => { html += `<span class="swimmer-chip">${s}</span>`; });
+        html += `</div></div>`;
+      });
+    } else {
+      html += `<div class="heat-block"><div style="font-size:13px;color:var(--text3);font-style:italic">Lineup TBD — check back the day before the meet</div></div>`;
+    }
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setHeaderBg(bgClass, title, sub) {
+  const h = document.getElementById('page-header');
+  h.className = 'page-header ' + bgClass;
+  document.getElementById('header-title').textContent = title;
+  document.getElementById('header-sub').textContent = sub;
+}
+
+function buildMeetList() {
+  const list = document.getElementById('meet-list');
+  MEETS.forEach(meet => {
+    const hasSw = !!MEET_SWIMMERS[meet.id];
+    const div = document.createElement('div');
+    div.className = 'meet-card';
+    div.innerHTML = `<div class="meet-card-left"><div class="meet-title">${meet.label}</div><div class="meet-sub">${meet.date}${!hasSw ? ' · <em>lineup TBD</em>' : ''}</div></div><div class="meet-card-arrow">›</div>`;
+    div.onclick = () => openMeet(meet);
+    list.appendChild(div);
+  });
+}
+
+async function openMeet(meet) {
+  currentMeet = meet;
+  document.getElementById('hub-opp-label').textContent = meet.opp;
+  document.getElementById('admin-meet-name').textContent = meet.date;
+  setHeaderBg(meet.bgClass, 'Meet Status', meet.label + ' · ' + meet.date);
+  await loadResults();
+  renderHub();
+  subscribeResults(renderHub);
+  show('screen-hub');
+}
+
+function leaveHub() {
+  unsubscribeResults();
+  setHeaderBg('meet-bg-0', 'Unofficial Meet Tracker', '2026 Season');
+  show('screen-home');
+}
+
+function goAdmin() {
+  show('screen-login');
+  document.getElementById('pw-input').value='';
+  document.getElementById('pw-error').style.display='none';
+}
+
+function checkPw() {
+  if(document.getElementById('pw-input').value===SCORER_PW){show('screen-admin');loadAdminState();}
+  else document.getElementById('pw-error').style.display='block';
+}
+
+// ── HUB RENDER ────────────────────────────────────────────────────────────────
+function renderHub() {
+  const EVENTS = getEvents();
+  const{slsc,opp,lastDone}=calcScores();
+  const maxRemaining=calcMaxRemaining();
+  const st=getStatus(slsc,opp,maxRemaining);
+  document.getElementById('hub-slsc').textContent=slsc;
+  document.getElementById('hub-opp').textContent=opp;
+  const banner=document.getElementById('hub-status-banner');
+  banner.style.background=st.bg;
+  banner.innerHTML=`<div class="status-text" style="color:${st.tc}">${st.text}</div><div class="status-sub" style="color:${st.tc}">${st.sub}</div>`;
+  renderSwimmerDisplay(lastDone);
+  renderResultsPanel(lastDone);
+  renderUpcomingPanel(lastDone+1);
+}
+
+function renderResultsPanel(lastDone) {
+  const EVENTS = getEvents();
+  const p=document.getElementById('panel-results');
+  if(lastDone<0){p.innerHTML='<div style="color:var(--text2);font-size:14px;padding:8px 0">No results yet.</div>';return;}
+  let html='';
+  for(let i=Math.max(0,lastDone-9);i<=lastDone;i++){
+    const ev=EVENTS[i],r=results[i]; if(!r) continue;
+    let slscPts=0;
+    if(ev.relay){slscPts=r[1]==='SLSC'?7:0;}
+    else{slscPts=calcIndPoints(r).slsc;}
+    const sw=!ev.relay?isSweep(r):null;
+    const winner=r[1];
+    const badgeClass=winner==='SLSC'?'badge-s':winner===oppName()?'badge-a':'';
+    const sweepTag=sw?`<span style="font-size:10px;color:var(--warn-txt);margin-left:4px">sweep</span>`:'';
+    html+=`<div class="event-row"><span class="ev-num">#${ev.n}</span><span style="flex:1;font-size:13px;padding:0 6px">${ev.name}</span>${sweepTag}${badgeClass?`<span class="badge ${badgeClass}" style="margin-left:4px">${winner}</span>`:''}<span style="font-size:11px;color:var(--text3);margin-left:6px;min-width:28px;text-align:right">+${slscPts}</span></div>`;
+  }
+  p.innerHTML=html||'<div style="color:var(--text2);font-size:14px">No results.</div>';
+}
+
+function renderUpcomingPanel(nextIdx) {
+  const EVENTS = getEvents();
+  const p=document.getElementById('panel-upcoming');
+  if(nextIdx>=EVENTS.length){p.innerHTML='<div style="color:var(--text2);font-size:14px;padding:8px 0">All events complete.</div>';return;}
+  let html='';
+  for(let i=nextIdx;i<Math.min(nextIdx+12,EVENTS.length);i++){
+    const ev=EVENTS[i];
+    html+=`<div class="event-row"><span class="ev-num">#${ev.n}</span><span style="flex:1;font-size:13px;padding:0 6px">${ev.name}</span><span style="font-size:11px;color:var(--text3)">${ev.relay?'Relay':'Ind.'}</span></div>`;
+  }
+  p.innerHTML=html;
+}
+
+function switchTab(tab){
+  document.getElementById('panel-results').style.display=tab==='results'?'block':'none';
+  document.getElementById('panel-upcoming').style.display=tab==='upcoming'?'block':'none';
+  document.getElementById('tab-results').classList.toggle('active',tab==='results');
+  document.getElementById('tab-upcoming').classList.toggle('active',tab==='upcoming');
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+function loadAdminState(){
+  const EVENTS = getEvents();
+  adminEventIdx=0;
+  for(let i=0;i<EVENTS.length;i++){
+    if(!results[i]){adminEventIdx=i;break;}
+    if(i===EVENTS.length-1)adminEventIdx=EVENTS.length-1;
+  }
+  renderAdminEvent();
+}
+
+function renderAdminEvent(){
+  const EVENTS = getEvents();
+  const ev=EVENTS[adminEventIdx];
+  document.getElementById('admin-event-label').textContent=`Event ${ev.n} of ${EVENTS.length}`;
+  document.getElementById('admin-event-name').textContent=ev.name;
+  const rn=document.getElementById('admin-relay-note');
+  rn.style.display=ev.relay?'block':'none';
+  if(ev.relay) rn.textContent='Relay: 1st place = 7 pts only';
+  const evsDone=Object.keys(results).length;
+  document.getElementById('admin-progress').textContent=`${evsDone} of ${EVENTS.length} events entered`;
+  document.getElementById('admin-progress-fill').style.width=Math.round((evsDone/EVENTS.length)*100)+'%';
+  const saved=results[adminEventIdx]||{};
+  selections={1:saved[1]||null,2:saved[2]||null,3:saved[3]||null};
+  renderPlaceSections();
+}
+
+function renderPlaceSections(){
+  const EVENTS = getEvents();
+  const ev=EVENTS[adminEventIdx];
+  const places=ev.relay?[1]:[1,2,3];
+  const labels={1:'1st place',2:'2nd place',3:'3rd place'};
+  let html='';
+  places.forEach(p=>{ html+=`<div class="section-label">${labels[p]}</div><div class="place-grid" id="grid-place-${p}"></div>`; });
+  document.getElementById('place-sections').innerHTML=html;
+  places.forEach(place=>{
+    const grid=document.getElementById(`grid-place-${place}`);
+    ['SLSC',oppName()].forEach(team=>{
+      const b=document.createElement('button');
+      b.className='place-btn';
+      b.textContent=team;
+      if(selections[place]===team) b.classList.add(team==='SLSC'?'sel-slsc':'sel-opp');
+      b.onclick=()=>{selections[place]=team;renderPlaceSections();};
+      grid.appendChild(b);
+    });
+  });
+  const sn=document.getElementById('sweep-note');
+  if(!ev.relay){
+    const sw=isSweep(selections);
+    if(sw){sn.style.display='block';sn.textContent=`Sweep! ${sw} wins 1st & 2nd (8 pts), other team gets 1 consolation pt.`;}
+    else sn.style.display='none';
+  } else sn.style.display='none';
+}
+
+function submitResult(){
+  const EVENTS = getEvents();
+  const ev=EVENTS[adminEventIdx];
+  const places=ev.relay?[1]:[1,2,3];
+  for(const p of places){ if(!selections[p]){alert('Please select a result for all places.');return;} }
+  const toSave={}; places.forEach(p=>toSave[p]=selections[p]);
+  results[adminEventIdx]=toSave;
+  saveResults().then(()=>{
+    if(adminEventIdx<EVENTS.length-1){adminEventIdx++;renderAdminEvent();}
+    else alert('All events entered!');
+  });
+}
+
+function skipEvent(){const EVENTS=getEvents();if(adminEventIdx<EVENTS.length-1){adminEventIdx++;renderAdminEvent();}}
+function prevEvent(){if(adminEventIdx>0){adminEventIdx--;renderAdminEvent();}}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+initFirebase();
+buildMeetList();
+</script>
+</body>
+</html>
