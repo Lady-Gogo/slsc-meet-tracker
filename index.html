@@ -307,7 +307,7 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
 <div id="screen-hub" class="screen">
   <div class="top-bar">
     <button class="btn btn-sm" onclick="leaveHub()">← Meets</button>
-    <button class="btn btn-sm" onclick="goAdmin()">Scorer →</button>
+    <button class="btn btn-sm" onclick="goAdmin()">Tracker →</button>
   </div>
   <div id="firebase-warning-hub" class="firebase-warning"></div>
 
@@ -330,7 +330,7 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
 <div id="screen-login" class="screen">
   <button class="btn btn-back" onclick="show('screen-hub')">← Back</button>
   <div class="card">
-    <h3>Scorer login</h3>
+    <h3>Tracker login</h3>
     <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Enter the tracker password to input results.</p>
     <input class="input-field" type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()">
     <div id="pw-error" class="error-msg">Incorrect password</div>
