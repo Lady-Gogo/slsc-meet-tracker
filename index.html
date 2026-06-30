@@ -124,6 +124,8 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
 .btn-back { margin-bottom: 1rem; width: auto; display: inline-block; padding: 7px 12px; font-size: 13px; }
 .btn-ghost { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); color: #fff; }
 .btn-ghost:hover { background: rgba(255,255,255,0.35); }
+.btn-danger { color: var(--red-txt); border-color: var(--red-txt); background: var(--red-bg); }
+.btn-danger:hover { background: var(--red-txt); color: #fff; }
 
 .meet-card {
   background: var(--bg);
@@ -365,6 +367,7 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
   </div>
   <div id="admin-progress" style="font-size:12px;color:var(--text3);text-align:center;margin-top:8px"></div>
   <div class="progress-bar-wrap"><div class="progress-bar-fill" id="admin-progress-fill" style="width:0%"></div></div>
+  <button class="btn btn-danger" id="erase-entry-btn" onclick="eraseCurrentEntry()" style="margin-top:18px;font-size:13px;display:none">🗑️ Erase this event's entry</button>
 </div>
 
 </div><!-- end content-area -->
@@ -976,6 +979,7 @@ function renderAdminEvent(){
   const saved=results[adminEventIdx]||{};
   selections={1:saved[1]||null,2:saved[2]||null,3:saved[3]||null};
   renderPlaceSections();
+  document.getElementById('erase-entry-btn').style.display = results[adminEventIdx] ? 'block' : 'none';
 }
 
 function renderPlaceSections(){
@@ -1028,6 +1032,16 @@ function missedResult(){
     if(adminEventIdx<EVENTS.length-1){adminEventIdx++;renderAdminEvent();}
     else alert('All events entered!');
   });
+}
+
+function eraseCurrentEntry(){
+  const EVENTS=getEvents();
+  const ev=EVENTS[adminEventIdx];
+  if(!results[adminEventIdx]) return;
+  const ok=confirm(`Erase the recorded entry for Event ${ev.n} (${ev.name})? This cannot be undone.`);
+  if(!ok) return;
+  delete results[adminEventIdx];
+  saveResults().then(()=>{ renderAdminEvent(); });
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
