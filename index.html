@@ -331,7 +331,7 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
   <button class="btn btn-back" onclick="show('screen-hub')">← Back</button>
   <div class="card">
     <h3>Scorer login</h3>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Enter the scorer password to input results.</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Enter the tracker password to input results.</p>
     <input class="input-field" type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()">
     <div id="pw-error" class="error-msg">Incorrect password</div>
     <button class="btn btn-primary" onclick="checkPw()" style="margin-top:10px">Sign in</button>
@@ -762,17 +762,12 @@ function getStatus(slsc,opp,maxRemaining) {
 function renderSwimmerDisplay(lastDone) {
   const EVENTS = getEvents();
   const container = document.getElementById('swimmer-display');
-  const evsDone = Object.keys(results).length;
   const nextIdx = lastDone + 1;
 
   const slots = [];
-  if (evsDone === 0) {
-    for(let i=0;i<Math.min(3,EVENTS.length);i++) slots.push({ev:EVENTS[i], role: i===0?'current':'ondeck'+(i)});
-  } else {
-    slots.push({ev: EVENTS[lastDone], role:'current'});
-    if(nextIdx < EVENTS.length) slots.push({ev: EVENTS[nextIdx], role:'ondeck1'});
-    if(nextIdx+1 < EVENTS.length) slots.push({ev: EVENTS[nextIdx+1], role:'ondeck2'});
-  }
+  if(nextIdx < EVENTS.length) slots.push({ev: EVENTS[nextIdx], role:'current'});
+  if(nextIdx+1 < EVENTS.length) slots.push({ev: EVENTS[nextIdx+1], role:'ondeck1'});
+  if(nextIdx+2 < EVENTS.length) slots.push({ev: EVENTS[nextIdx+2], role:'ondeck2'});
 
   let html = '';
   slots.forEach(slot => {
@@ -784,8 +779,7 @@ function renderSwimmerDisplay(lastDone) {
     else if(slot.role==='ondeck2') headerClass += ' ondeck2';
 
     let tag = '';
-    if(evsDone===0 && slot.role==='current') tag = 'Up first';
-    else if(isCurrent) tag = 'In the water';
+    if(isCurrent) tag = 'In the pool';
     else if(isOndeck1) tag = 'On deck';
     else tag = 'On deck 2';
 
