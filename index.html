@@ -314,16 +314,16 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
   <div id="firebase-warning-hub" class="firebase-warning"></div>
 
   <!-- Current + on deck swimmer display -->
-  <div id="swimmer-display"></div>
+  <div class="js-swimmer-display"></div>
 
-  <div id="hub-winning-banner" style="border-radius:var(--radius);padding:.75rem 1.25rem;margin-bottom:.75rem;display:none">
+  <div class="js-winning-banner" style="border-radius:var(--radius);padding:.75rem 1.25rem;margin-bottom:.75rem;display:none">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin-bottom:3px">Are we winning?</div>
-    <div id="hub-winning-text" style="font-size:17px;font-weight:700"></div>
+    <div class="js-winning-text" style="font-size:17px;font-weight:700"></div>
   </div>
 
   <div class="section-label" style="margin-top:.75rem">Upcoming</div>
-  <div id="panel-upcoming"></div>
-  <div id="panel-results" style="display:none"></div>
+  <div class="js-panel-upcoming"></div>
+  <div class="js-panel-results" style="display:none"></div>
 
   <div id="viewer-sync" class="sync-bar" style="margin-top:.5rem"></div>
 </div>
@@ -368,6 +368,20 @@ h3 { font-size: 16px; font-weight: 600; margin-bottom: .5rem; }
   <div id="admin-progress" style="font-size:12px;color:var(--text3);text-align:center;margin-top:8px"></div>
   <div class="progress-bar-wrap"><div class="progress-bar-fill" id="admin-progress-fill" style="width:0%"></div></div>
   <button class="btn btn-danger" id="erase-entry-btn" onclick="eraseCurrentEntry()" style="margin-top:18px;font-size:13px;display:none">🗑️ Erase this event's entry</button>
+
+  <!-- ── Meet Status (same content as the Meet Status/Hub screen) ── -->
+  <div class="section-label" style="margin-top:1.5rem">Meet Status</div>
+
+  <div class="js-swimmer-display"></div>
+
+  <div class="js-winning-banner" style="border-radius:var(--radius);padding:.75rem 1.25rem;margin-bottom:.75rem;display:none">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin-bottom:3px">Are we winning?</div>
+    <div class="js-winning-text" style="font-size:17px;font-weight:700"></div>
+  </div>
+
+  <div class="section-label" style="margin-top:.75rem">Upcoming</div>
+  <div class="js-panel-upcoming"></div>
+  <div class="js-panel-results" style="display:none"></div>
 </div>
 
 </div><!-- end content-area -->
@@ -886,7 +900,7 @@ function getStatus(slsc,opp,maxRemaining) {
 // ── SWIMMER DISPLAY ───────────────────────────────────────────────────────────
 function renderSwimmerDisplay(lastDone) {
   const EVENTS = getEvents();
-  const container = document.getElementById('swimmer-display');
+  const containers = document.querySelectorAll('.js-swimmer-display');
   const nextIdx = lastDone + 1;
 
   const slots = [];
@@ -936,7 +950,7 @@ function renderSwimmerDisplay(lastDone) {
     html += `</div>`;
   });
 
-  container.innerHTML = html;
+  containers.forEach(c => c.innerHTML = html);
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
@@ -1006,12 +1020,10 @@ function renderHub() {
 
   // Simple public "Are we winning?" banner
   const evsDone = Object.keys(results).length;
-  const winBanner = document.getElementById('hub-winning-banner');
-  const winText = document.getElementById('hub-winning-text');
+  const winBanners = document.querySelectorAll('.js-winning-banner');
   if(evsDone === 0) {
-    winBanner.style.display = 'none';
+    winBanners.forEach(b => b.style.display = 'none');
   } else {
-    winBanner.style.display = 'block';
     const diff = slsc - opp;
     const behind = Math.abs(diff);
     let phrase, bg, tc;
@@ -1024,9 +1036,12 @@ function renderHub() {
     } else {
       phrase = "It's a toss up 🤷"; bg='#fef3d0'; tc='#7a4f00';
     }
-    winBanner.style.background = bg;
-    winText.style.color = tc;
-    winText.textContent = phrase;
+    winBanners.forEach(b => {
+      b.style.display = 'block';
+      b.style.background = bg;
+      const t = b.querySelector('.js-winning-text');
+      if(t) { t.style.color = tc; t.textContent = phrase; }
+    });
   }
 
   renderSwimmerDisplay(lastDone);
@@ -1036,8 +1051,8 @@ function renderHub() {
 
 function renderResultsPanel(lastDone) {
   const EVENTS = getEvents();
-  const p=document.getElementById('panel-results');
-  if(lastDone<0){p.innerHTML='<div style="color:var(--text2);font-size:14px;padding:8px 0">No results yet.</div>';return;}
+  const panels=document.querySelectorAll('.js-panel-results');
+  if(lastDone<0){panels.forEach(p=>p.innerHTML='<div style="color:var(--text2);font-size:14px;padding:8px 0">No results yet.</div>');return;}
   let html='';
   for(let i=Math.max(0,lastDone-9);i<=lastDone;i++){
     const ev=EVENTS[i],r=results[i]; if(!r) continue;
@@ -1054,26 +1069,26 @@ function renderResultsPanel(lastDone) {
     const sweepTag=sw?`<span style="font-size:10px;color:var(--warn-txt);margin-left:4px">sweep</span>`:'';
     html+=`<div class="event-row"><span class="ev-num">#${ev.n}</span><span style="flex:1;font-size:13px;padding:0 6px">${ev.name}</span>${sweepTag}${badgeClass?`<span class="badge ${badgeClass}" style="margin-left:4px">${winner}</span>`:''}<span style="font-size:11px;color:var(--text3);margin-left:6px;min-width:28px;text-align:right">+${slscPts}</span></div>`;
   }
-  p.innerHTML=html||'<div style="color:var(--text2);font-size:14px">No results.</div>';
+  panels.forEach(p=>p.innerHTML=html||'<div style="color:var(--text2);font-size:14px">No results.</div>');
 }
 
 function renderUpcomingPanel(nextIdx) {
   const EVENTS = getEvents();
-  const p=document.getElementById('panel-upcoming');
-  if(nextIdx>=EVENTS.length){p.innerHTML='<div style="color:var(--text2);font-size:14px;padding:8px 0">All events complete.</div>';return;}
+  const panels=document.querySelectorAll('.js-panel-upcoming');
+  if(nextIdx>=EVENTS.length){panels.forEach(p=>p.innerHTML='<div style="color:var(--text2);font-size:14px;padding:8px 0">All events complete.</div>');return;}
   let html='';
   for(let i=nextIdx;i<Math.min(nextIdx+12,EVENTS.length);i++){
     const ev=EVENTS[i];
     html+=`<div class="event-row"><span class="ev-num">#${ev.n}</span><span style="flex:1;font-size:13px;padding:0 6px">${ev.name}</span><span style="font-size:11px;color:var(--text3)">${ev.relay?'Relay':'Ind.'}</span></div>`;
   }
-  p.innerHTML=html;
+  panels.forEach(p=>p.innerHTML=html);
 }
 
 function switchTab(tab){
-  document.getElementById('panel-results').style.display=tab==='results'?'block':'none';
-  document.getElementById('panel-upcoming').style.display=tab==='upcoming'?'block':'none';
-  document.getElementById('tab-results').classList.toggle('active',tab==='results');
-  document.getElementById('tab-upcoming').classList.toggle('active',tab==='upcoming');
+  document.querySelectorAll('.js-panel-results').forEach(p=>p.style.display=tab==='results'?'block':'none');
+  document.querySelectorAll('.js-panel-upcoming').forEach(p=>p.style.display=tab==='upcoming'?'block':'none');
+  const tr=document.getElementById('tab-results'); if(tr) tr.classList.toggle('active',tab==='results');
+  const tu=document.getElementById('tab-upcoming'); if(tu) tu.classList.toggle('active',tab==='upcoming');
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
